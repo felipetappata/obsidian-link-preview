@@ -29,7 +29,7 @@ Simply hover over any external link in your notes to see a preview of the webpag
 
 ## Support
 
-If you encounter any issues or have suggestions, please file them on the [GitHub repository](https://github.com/yourusername/obsidian-link-preview/issues).
+If you encounter any issues or have suggestions, please file them on the [GitHub repository](https://github.com/felipetappata/obsidian-link-preview/issues).
 
 ## License
 
