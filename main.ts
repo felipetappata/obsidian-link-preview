@@ -1,5 +1,8 @@
 import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
 
+/**
+ * Settings interface for the Link Preview plugin
+ */
 interface LinkPreviewSettings {
     mySetting: string;
     previewDelay: number;
@@ -8,29 +11,33 @@ interface LinkPreviewSettings {
     maxPreviewWidth: number;
 }
 
+// Default settings values
 const DEFAULT_SETTINGS: LinkPreviewSettings = {
     mySetting: 'default',
-    previewDelay: 300,
-    maxPreviewHeight: 300,
+    previewDelay: 50,
     enablePreview: true,
-    maxPreviewWidth: 400
+    maxPreviewHeight: 400,
+    maxPreviewWidth: 600
 }
 
+/**
+ * Link Preview plugin that shows iframe previews of external links on hover
+ */
 export default class LinkPreviewPlugin extends Plugin {
     settings: LinkPreviewSettings;
-    private previewCount = 0;  // Track number of active previews
-    
+    // Track active preview elements by link URL
+    private activeLinks: Map<string, HTMLElement> = new Map();
+
     async onload() {
         await this.loadSettings();
 
-        // Register the hover handler
+        // Register the hover handler with cleanup
         this.registerDomEvent(document, 'mouseover', (evt: MouseEvent) => {
             const target = evt.target as HTMLElement;
             const linkEl = target.closest('a');
             
             if (!linkEl || !this.settings.enablePreview) return;
             
-            // Only handle external links
             if (linkEl.hasClass('external-link')) {
                 const rect = linkEl.getBoundingClientRect();
                 this.showPreview(linkEl, rect);
@@ -40,66 +47,64 @@ export default class LinkPreviewPlugin extends Plugin {
         this.addSettingTab(new LinkPreviewSettingTab(this.app, this));
     }
 
+    /**
+     * Clean up any remaining previews when plugin is disabled
+     */
+    onunload() {
+        // Clean up any remaining previews
+        this.activeLinks.forEach((previewEl, linkId) => {
+            previewEl.remove();
+        });
+        this.activeLinks.clear();
+    }
+
+    /**
+     * Creates and shows a preview window for a link element
+     * @param linkEl - The link element for which to create a preview
+     * @param rect - The bounding rectangle of the link element
+     */
     private showPreview(linkEl: HTMLElement, rect: DOMRect) {
         const url = linkEl.getAttribute('href');
         if (!url) return;
 
-        // Prevent multiple previews of the same link
-        if (linkEl.hasAttribute('data-preview-active')) return;
-        linkEl.setAttribute('data-preview-active', 'true');
+        const linkId = `preview-${url}`;
+        if (this.activeLinks.has(linkId)) return;
 
-        // Create hover element
-        const hoverEl = document.createElement('div');
-        hoverEl.addClass('hover-popup');
-        hoverEl.style.position = 'fixed';
-        hoverEl.style.left = `${rect.left}px`;
-        hoverEl.style.top = `${rect.bottom + 5}px`;
-        hoverEl.style.zIndex = '1000';
-        hoverEl.style.width = `${this.settings.maxPreviewWidth}px`;  // Set container width
-        hoverEl.style.height = `${this.settings.maxPreviewHeight}px`;  // Set container height
+        // Create hover element using createEl for security
+        const hoverEl = this.createPreviewElement(rect);
         
-        // Create loading indicator
-        const loadingEl = document.createElement('div');
-        loadingEl.addClass('preview-loading');
-        loadingEl.innerHTML = 'Loading preview...';
-        hoverEl.appendChild(loadingEl);
+        // Create loading indicator safely
+        const loadingEl = hoverEl.createDiv({cls: 'preview-loading'});
+        loadingEl.setText('Loading preview...');
         
-        // Create and add iframe
-        const iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
+        // Create iframe wrapper and iframe safely
+        const iframeWrapper = hoverEl.createDiv({cls: 'preview-iframe-wrapper'});
+        const iframe = iframeWrapper.createEl('iframe', {
+            attr: {
+                src: url,
+                style: 'display: none; width: 100%; height: 100%; border: none;'
+            }
+        });
+
+        // Add load event handler before adding iframe to DOM
         iframe.addEventListener('load', () => {
             loadingEl.remove();
             iframe.style.display = 'block';
         });
-        iframe.addEventListener('error', () => {
-            loadingEl.innerHTML = 'Failed to load preview';
-        });
-        iframe.src = url;
-        iframe.style.width = '100%';
-        iframe.style.height = '100%';
-        iframe.style.border = 'none';
-        
-        document.body.appendChild(hoverEl);
 
-        // Create iframe wrapper and add iframe
-        const iframeWrapper = document.createElement('div');
-        iframeWrapper.addClass('preview-iframe-wrapper');
-        iframeWrapper.appendChild(iframe);
-        hoverEl.appendChild(iframeWrapper);
+        iframe.addEventListener('error', () => {
+            loadingEl.setText('Failed to load preview');
+        });
+
+        // Set up event handlers
+        const cleanup = () => {
+            this.activeLinks.delete(linkId);
+            hoverEl.remove();
+            linkEl.removeAttribute('data-preview-active');
+        };
 
         let isLinkHovered = true;
         let isPreviewHovered = false;
-
-        // Remove preview when both link and preview are not hovered
-        const cleanup = () => {
-            this.previewCount--;
-            hoverEl.remove();
-            linkEl.removeAttribute('data-preview-active');
-            linkEl.removeEventListener('mouseenter', handleLinkEnter);
-            linkEl.removeEventListener('mouseleave', handleLinkLeave);
-            hoverEl.removeEventListener('mouseenter', handlePreviewEnter);
-            hoverEl.removeEventListener('mouseleave', handlePreviewLeave);
-        };
 
         const removePreview = () => {
             if (!isLinkHovered && !isPreviewHovered) {
@@ -131,7 +136,29 @@ export default class LinkPreviewPlugin extends Plugin {
         hoverEl.addEventListener('mouseenter', handlePreviewEnter);
         hoverEl.addEventListener('mouseleave', handlePreviewLeave);
 
-        this.previewCount++;
+        this.activeLinks.set(linkId, hoverEl);
+        document.body.appendChild(hoverEl);
+    }
+
+    /**
+     * Creates the preview container element with proper positioning
+     * @param rect - The bounding rectangle used for positioning
+     * @returns HTMLElement configured as preview container
+     */
+    private createPreviewElement(rect: DOMRect): HTMLElement {
+        return createEl('div', {
+            cls: 'hover-popup',
+            attr: {
+                style: `
+                    position: fixed;
+                    left: ${rect.left}px;
+                    top: ${rect.bottom + 5}px;
+                    z-index: 1000;
+                    width: ${this.settings.maxPreviewWidth}px;
+                    height: ${this.settings.maxPreviewHeight}px;
+                `
+            }
+        });
     }
 
     async loadSettings() {
@@ -143,6 +170,9 @@ export default class LinkPreviewPlugin extends Plugin {
     }
 }
 
+/**
+ * Settings tab for configuring the Link Preview plugin
+ */
 class LinkPreviewSettingTab extends PluginSettingTab {
     plugin: LinkPreviewPlugin;
 
@@ -157,7 +187,7 @@ class LinkPreviewSettingTab extends PluginSettingTab {
         containerEl.empty();
 
         new Setting(containerEl)
-            .setName('Enable Preview')
+            .setName('Enable preview')
             .setDesc('Toggle link preview functionality')
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.enablePreview)
@@ -167,7 +197,7 @@ class LinkPreviewSettingTab extends PluginSettingTab {
                 }));
 
         new Setting(containerEl)
-            .setName('Preview Delay')
+            .setName('Preview delay')
             .setDesc('How long to wait before showing the preview (in milliseconds)')
             .addText(text => text
                 .setPlaceholder('300')
@@ -178,7 +208,7 @@ class LinkPreviewSettingTab extends PluginSettingTab {
                 }));
 
         new Setting(containerEl)
-            .setName('Maximum Preview Height')
+            .setName('Maximum preview height')
             .setDesc('Maximum height of the preview window (in pixels)')
             .addText(text => text
                 .setPlaceholder('300')
@@ -189,7 +219,7 @@ class LinkPreviewSettingTab extends PluginSettingTab {
                 }));
 
         new Setting(containerEl)
-            .setName('Maximum Preview Width')
+            .setName('Maximum preview width')
             .setDesc('Maximum width of the preview window (in pixels)')
             .addText(text => text
                 .setPlaceholder('400')

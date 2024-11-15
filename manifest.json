@@ -1,9 +1,9 @@
 {
-	"id": "link-previews",
-	"name": "Link Previews",
-	"version": "0.0.1",
+	"id": "link-preview",
+	"name": "Link Preview",
+	"version": "0.1.0",
 	"minAppVersion": "1.7.6",
-	"description": "Shows a preview of external links when hovering over them",
+	"description": "Show a preview of external links on hover",
 	"author": "Felipe Tappata",
 	"authorUrl": "https://github.com/felipetappata",
 	"isDesktopOnly": true

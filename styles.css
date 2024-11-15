@@ -1,9 +1,10 @@
+/* Main preview container */
 .hover-popup {
     background-color: var(--background-primary);
     border: 1px solid var(--background-modifier-border);
-    border-radius: 12px;  /* macOS-style rounded corners */
-    box-shadow: 0 4px 24px -6px rgba(0, 0, 0, 0.15);
-    padding: 8px;  /* Even padding all around */
+    border-radius: var(--radius-m);
+    box-shadow: var(--shadow-s);
+    padding: var(--size-4-2);
     display: flex;
     flex-direction: column;
     pointer-events: all;
@@ -11,13 +12,7 @@
     min-height: 100px;  /* Minimum height to prevent tiny windows */
 }
 
-/* Remove these classes */
-.preview-control-bar,
-.preview-nav-button,
-.preview-nav-button:hover,
-.preview-nav-button::after,
-/* And all related hover/tooltip styles */
-
+/* Preview navigation controls */
 .preview-nav-group {
     display: flex;
     gap: 4px;
@@ -38,17 +33,19 @@
     display: none;
 }
 
+/* Preview content container */
 .preview-iframe-wrapper {
     flex: 1;
     position: relative;
     background-color: var(--background-secondary);
-    border-radius: 8px;  /* Slightly smaller radius for inner content */
-    box-shadow: 0 2px 12px -4px rgba(0, 0, 0, 0.1);
+    border-radius: var(--radius-s);
+    box-shadow: var(--shadow-xs);
     overflow: hidden;  /* Ensure content respects rounded corners */
     height: 100%;  /* Make sure wrapper takes full height */
     min-height: 0;  /* Allow wrapper to shrink */
 }
 
+/* Preview iframe */
 .hover-popup iframe {
     background-color: white;
     pointer-events: all;  /* Re-enable pointer events for iframe */
@@ -57,6 +54,7 @@
     display: block;
 }
 
+/* Loading state indicator */
 .preview-loading {
     padding: 20px;
     text-align: center;
