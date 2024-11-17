@@ -8,7 +8,8 @@
     display: flex;
     flex-direction: column;
     pointer-events: all;
-    position: relative;
+    position: fixed;
+    z-index: 1000;
     min-height: 100px;  /* Minimum height to prevent tiny windows */
 }
 
@@ -43,15 +44,18 @@
     overflow: hidden;  /* Ensure content respects rounded corners */
     height: 100%;  /* Make sure wrapper takes full height */
     min-height: 0;  /* Allow wrapper to shrink */
+    width: 100%;
+    height: 100%;
 }
 
 /* Preview iframe */
-.hover-popup iframe {
-    background-color: white;
-    pointer-events: all;  /* Re-enable pointer events for iframe */
+.preview-iframe-wrapper iframe {
+    display: none;
     width: 100%;
     height: 100%;
-    display: block;
+    border: none;
+    background-color: white;
+    pointer-events: all;
 }
 
 /* Loading state indicator */

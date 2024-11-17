@@ -4,7 +4,6 @@ import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
  * Settings interface for the Link Preview plugin
  */
 interface LinkPreviewSettings {
-    mySetting: string;
     previewDelay: number;
     maxPreviewHeight: number;
     enablePreview: boolean;
@@ -13,8 +12,7 @@ interface LinkPreviewSettings {
 
 // Default settings values
 const DEFAULT_SETTINGS: LinkPreviewSettings = {
-    mySetting: 'default',
-    previewDelay: 50,
+    previewDelay: 300,
     enablePreview: true,
     maxPreviewHeight: 400,
     maxPreviewWidth: 600
@@ -70,74 +68,68 @@ export default class LinkPreviewPlugin extends Plugin {
         const linkId = `preview-${url}`;
         if (this.activeLinks.has(linkId)) return;
 
-        // Create hover element using createEl for security
-        const hoverEl = this.createPreviewElement(rect);
-        
-        // Create loading indicator safely
-        const loadingEl = hoverEl.createDiv({cls: 'preview-loading'});
-        loadingEl.setText('Loading preview...');
-        
-        // Create iframe wrapper and iframe safely
-        const iframeWrapper = hoverEl.createDiv({cls: 'preview-iframe-wrapper'});
-        const iframe = iframeWrapper.createEl('iframe', {
-            attr: {
-                src: url,
-                style: 'display: none; width: 100%; height: 100%; border: none;'
-            }
-        });
-
-        // Add load event handler before adding iframe to DOM
-        iframe.addEventListener('load', () => {
-            loadingEl.remove();
-            iframe.style.display = 'block';
-        });
-
-        iframe.addEventListener('error', () => {
-            loadingEl.setText('Failed to load preview');
-        });
-
-        // Set up event handlers
-        const cleanup = () => {
-            this.activeLinks.delete(linkId);
-            hoverEl.remove();
-            linkEl.removeAttribute('data-preview-active');
-        };
-
-        let isLinkHovered = true;
-        let isPreviewHovered = false;
-
-        const removePreview = () => {
-            if (!isLinkHovered && !isPreviewHovered) {
-                cleanup();
-            }
-        };
-
-        const handleLinkEnter = () => {
-            isLinkHovered = true;
-        };
+        let hideTimeout: NodeJS.Timeout;
 
         const handleLinkLeave = () => {
-            isLinkHovered = false;
-            setTimeout(removePreview, 100); // Small delay to allow moving to preview
+            hideTimeout = setTimeout(cleanupPreview, 300);
         };
 
         const handlePreviewEnter = () => {
-            isPreviewHovered = true;
+            if (hideTimeout) {
+                clearTimeout(hideTimeout);
+            }
         };
 
         const handlePreviewLeave = () => {
-            isPreviewHovered = false;
-            removePreview();
+            cleanupPreview();
         };
 
-        // Add event listeners
-        linkEl.addEventListener('mouseenter', handleLinkEnter);
-        linkEl.addEventListener('mouseleave', handleLinkLeave);
-        hoverEl.addEventListener('mouseenter', handlePreviewEnter);
-        hoverEl.addEventListener('mouseleave', handlePreviewLeave);
+        // Create a cleanup function that uses the handlers defined above
+        const cleanupPreview = () => {
+            const previewEl = this.activeLinks.get(linkId);
+            if (previewEl) {
+                previewEl.remove();
+                this.activeLinks.delete(linkId);
+            }
+            linkEl.removeEventListener('mouseleave', handleLinkLeave);
+        };
 
-        this.activeLinks.set(linkId, hoverEl);
-        document.body.appendChild(hoverEl);
+        // Add delay before showing preview
+        setTimeout(() => {
+            if (this.activeLinks.has(linkId)) return; // Double-check preview wasn't created
+
+            const hoverEl = this.createPreviewElement(rect);
+            this.activeLinks.set(linkId, hoverEl);
+            
+            // Create loading indicator safely
+            const loadingEl = hoverEl.createDiv({cls: 'preview-loading'});
+            loadingEl.setText('Loading preview...');
+            
+            // Create iframe wrapper and iframe safely
+            const iframeWrapper = hoverEl.createDiv({cls: 'preview-iframe-wrapper'});
+            const iframe = iframeWrapper.createEl('iframe', {
+                attr: {
+                    src: url
+                }
+            });
+
+            // Add load event handler before adding iframe to DOM
+            iframe.addEventListener('load', () => {
+                loadingEl.remove();
+                iframe.style.display = 'block';
+            });
+
+            iframe.addEventListener('error', () => {
+                loadingEl.setText('Failed to load preview');
+            });
+
+            // Add event listeners
+            linkEl.addEventListener('mouseleave', handleLinkLeave);
+            hoverEl.addEventListener('mouseenter', handlePreviewEnter);
+            hoverEl.addEventListener('mouseleave', handlePreviewLeave);
+
+            document.body.appendChild(hoverEl);
+        }, this.settings.previewDelay);
     }
 
     /**
@@ -146,19 +138,19 @@ export default class LinkPreviewPlugin extends Plugin {
      * @returns HTMLElement configured as preview container
      */
     private createPreviewElement(rect: DOMRect): HTMLElement {
-        return createEl('div', {
-            cls: 'hover-popup',
-            attr: {
-                style: `
-                    position: fixed;
-                    left: ${rect.left}px;
-                    top: ${rect.bottom + 5}px;
-                    z-index: 1000;
-                    width: ${this.settings.maxPreviewWidth}px;
-                    height: ${this.settings.maxPreviewHeight}px;
-                `
-            }
+        const el = createEl('div', {
+            cls: 'hover-popup'
         });
+        
+        // Set dynamic positioning via cssText to avoid !important conflicts
+        el.style.cssText = `
+            left: ${rect.left}px;
+            top: ${rect.bottom + 5}px;
+            width: ${this.settings.maxPreviewWidth}px;
+            height: ${this.settings.maxPreviewHeight}px;
+        `;
+        
+        return el;
     }
 
     async loadSettings() {
