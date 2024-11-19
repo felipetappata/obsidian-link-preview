@@ -6,14 +6,12 @@ import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
 interface LinkPreviewSettings {
     previewDelay: number;
     maxPreviewHeight: number;
-    enablePreview: boolean;
     maxPreviewWidth: number;
 }
 
 // Default settings values
 const DEFAULT_SETTINGS: LinkPreviewSettings = {
     previewDelay: 300,
-    enablePreview: true,
     maxPreviewHeight: 400,
     maxPreviewWidth: 600
 }
@@ -29,20 +27,31 @@ export default class LinkPreviewPlugin extends Plugin {
     async onload() {
         await this.loadSettings();
 
-        // Register the hover handler with cleanup
-        this.registerDomEvent(document, 'mouseover', (evt: MouseEvent) => {
+        // Register hover handler for main window
+        this.registerHoverHandler(document);
+
+        // Register for pop-out windows
+        this.registerEvent(
+            this.app.workspace.on('window-open', ({win}) => {
+                this.registerHoverHandler(win.document);
+            })
+        );
+
+        this.addSettingTab(new LinkPreviewSettingTab(this.app, this));
+    }
+
+    private registerHoverHandler(doc: Document) {
+        this.registerDomEvent(doc, 'mouseover', (evt: MouseEvent) => {
             const target = evt.target as HTMLElement;
             const linkEl = target.closest('a');
             
-            if (!linkEl || !this.settings.enablePreview) return;
+            if (!linkEl) return;
             
             if (linkEl.hasClass('external-link')) {
                 const rect = linkEl.getBoundingClientRect();
-                this.showPreview(linkEl, rect);
+                this.showPreview(linkEl, rect, doc);
             }
         });
-
-        this.addSettingTab(new LinkPreviewSettingTab(this.app, this));
     }
 
     /**
@@ -61,22 +70,24 @@ export default class LinkPreviewPlugin extends Plugin {
      * @param linkEl - The link element for which to create a preview
      * @param rect - The bounding rectangle of the link element
      */
-    private showPreview(linkEl: HTMLElement, rect: DOMRect) {
+    private showPreview(linkEl: HTMLElement, rect: DOMRect, doc: Document) {
         const url = linkEl.getAttribute('href');
         if (!url) return;
 
         const linkId = `preview-${url}`;
         if (this.activeLinks.has(linkId)) return;
 
-        let hideTimeout: NodeJS.Timeout;
+        let hideTimeout: number;
+        const win = doc.defaultView;
+        if (!win) return;
 
         const handleLinkLeave = () => {
-            hideTimeout = setTimeout(cleanupPreview, 300);
+            hideTimeout = win.setTimeout(cleanupPreview, 300);
         };
 
         const handlePreviewEnter = () => {
             if (hideTimeout) {
-                clearTimeout(hideTimeout);
+                win.clearTimeout(hideTimeout);
             }
         };
 
@@ -128,7 +139,7 @@ export default class LinkPreviewPlugin extends Plugin {
             hoverEl.addEventListener('mouseenter', handlePreviewEnter);
             hoverEl.addEventListener('mouseleave', handlePreviewLeave);
 
-            document.body.appendChild(hoverEl);
+            doc.body.appendChild(hoverEl);
         }, this.settings.previewDelay);
     }
 
@@ -142,8 +153,9 @@ export default class LinkPreviewPlugin extends Plugin {
             cls: 'hover-popup'
         });
         
-        // Set dynamic positioning via cssText to avoid !important conflicts
+        // Use viewport-relative positioning - this will be relative to whatever window contains the element
         el.style.cssText = `
+            position: fixed;
             left: ${rect.left}px;
             top: ${rect.bottom + 5}px;
             width: ${this.settings.maxPreviewWidth}px;
@@ -177,16 +189,6 @@ class LinkPreviewSettingTab extends PluginSettingTab {
         const {containerEl} = this;
 
         containerEl.empty();
-
-        new Setting(containerEl)
-            .setName('Enable preview')
-            .setDesc('Toggle link preview functionality')
-            .addToggle(toggle => toggle
-                .setValue(this.plugin.settings.enablePreview)
-                .onChange(async (value) => {
-                    this.plugin.settings.enablePreview = value;
-                    await this.plugin.saveSettings();
-                }));
 
         new Setting(containerEl)
             .setName('Preview delay')

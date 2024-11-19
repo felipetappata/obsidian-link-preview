@@ -2,6 +2,8 @@
 
 A plugin for [Obsidian](https://obsidian.md) that shows a preview of external links when hovering over them.
 
+![Demo of Link Preview](demo.gif)
+
 ## Features
 
 - Instantly preview external links without leaving Obsidian
@@ -18,7 +20,6 @@ A plugin for [Obsidian](https://obsidian.md) that shows a preview of external li
 
 ## Settings
 
-- **Enable Preview**: Toggle the preview functionality on/off
 - **Preview Delay**: Set how long to wait before showing the preview (in milliseconds)
 - **Maximum Preview Height**: Set the maximum height of the preview window (in pixels)
 - **Maximum Preview Width**: Set the maximum width of the preview window (in pixels)
