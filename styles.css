@@ -68,3 +68,19 @@
     left: 50%;
     transform: translate(-50%, -50%);
 }
+
+.preview-loading::after {
+    content: '';
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--text-muted);
+    border-radius: 50%;
+    border-right-color: transparent;
+    animation: rotate 0.5s linear infinite;
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
