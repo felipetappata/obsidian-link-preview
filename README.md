@@ -13,6 +13,8 @@ A plugin for [Obsidian](https://obsidian.md) that shows a preview of external li
 
 ## Installation
 
+[Click here](https://obsidian.md/plugins?id=link-preview) or:
+
 1. Open Obsidian Settings
 2. Go to Community Plugins and disable Safe Mode
 3. Click Browse and search for "Link Preview"
